@@ -11,9 +11,13 @@ def send(msg):
 
 
 def receive():
-    msg = client.recv(max_length).decode("utf-8")
-    while(msg == None or msg == ""):
+    msg = ""
+    try:
         msg = client.recv(max_length).decode("utf-8")
+        while(msg == None or msg == ""):
+            msg = client.recv(max_length).decode("utf-8")
+    except:
+        connected = False
     return msg
 
 
@@ -43,15 +47,19 @@ while True:
     USRNME = input("Enter you Username: ")
     try:
         if (USRNME != "ALL" and USRNME.isalnum()):
-            print("\n[REGISTRATION] Registering Username\n")
+            print("\n[REGISTRATION] ....Registering Username...\n")
             send("REGISTER TOSEND " + USRNME + "\n\n")
             msg = receive()
+            if (msg == ""):
+                continue
             if (msg[0] == 'E'):
                 print(
                     "[ERROR 100] Failed to register: Malformed Username or username already taken")
             else:
                 send("REGISTER TORECV " + USRNME + "\n\n")
                 msg = receive()
+                if (msg == ""):
+                    continue
                 if (msg[0] == 'E'):
                     print(
                         "[ERROR 100] Failed to register: Malformed Username or username already taken")
@@ -66,6 +74,8 @@ while True:
 def handle_send():
     while connected:
         s = input()
+        if (len(s) == 0):
+            continue
         if (s[0] != '@'):
             print(
                 "[ERROR] invalid message format: should start with \'@\' followed by receiver's username")
@@ -85,19 +95,16 @@ def handle_send():
 def handle_receive():
     while connected:
         s = receive()
+        if (s == ""):
+            continue
         if (s[0] == 'S'):
             receiver = s[5:len(s) - 1]
             print("[MESSAGE SENT] to " + receiver + '\n')
-        elif (s[0] == 'E'):
-            if (s[8] == '2'):
-                print("[ERROR 102] Unable to send\n")
-            elif (s[8] == '3'):
-                print("[ERROR 103] Header incomplete\n")
-            elif(s[8] == '0'):
-                print("[ERROR 100] No user registered\n")
-            else:
-                print("[ERROR]", s)
-        else:
+        elif (s[0:8] == "ERROR 102"):
+            print("[ERROR 102] Unable to send\n")
+        elif(s[0:8] == 'ERROR 100'):
+            print("[ERROR 100] No user registered\n")
+        elif(s[0:7] == "FORWARD"):
             i = 8
             while(s[i] != '\n'):
                 i += 1
@@ -106,6 +113,7 @@ def handle_receive():
             c = s[i:i + 15]
             if (c != "Content-length:"):
                 send("ERROR 103 Header Incomplete\n\n")
+                break
             else:
                 i += 16
                 j = i
@@ -116,9 +124,14 @@ def handle_receive():
                 msg = s[i:len(s)]
                 if (contentLength != len(msg)):
                     send("ERROR 103 Header Incomplete\n\n")
+                    break
                 else:
                     print("[" + sender + "] " + msg)
                     send("RECEIVED " + sender + "\n\n")
+        else:
+            print("[ERROR 103] Header incomplete\n")
+            break
+    print("[CONNECTION] connection lost...\n")
 
 
 thread1 = threading.Thread(target=handle_send)

@@ -21,10 +21,15 @@ def send(msg, client):
     client.send(message)
 
 
-def receive(client):
-    msg = client.recv(max_length).decode("utf-8")
-    while(msg == None or msg == ""):
+def receive(client, connected):
+    msg = ""
+    try:
         msg = client.recv(max_length).decode("utf-8")
+        while(msg == None or msg == ""):
+            msg = client.recv(max_length).decode("utf-8")
+            return msg
+    except:
+        connected[0] = False
     return msg
 
 
@@ -32,8 +37,18 @@ def handle_client(conn, addr, noOfConf, boolRecv):
     toSend = False
     toRecv = False
     Username = ""
-    while True:
-        s = receive(conn)
+    connected = [True]
+    while connected[0]:
+        s = receive(conn, connected)
+        if (connected[0] == False):
+            if (Username != ""):
+                del dict[Username]
+                boolRecv.pop()
+                print("[CONNECTION] Total active connections are:", len(dict))
+
+            break
+        if (len(s) == 0):
+            continue
         if (s[0:8] == "REGISTER"):
             if (s[9:15] == "TOSEND"):
                 if (toSend == False):
@@ -72,6 +87,9 @@ def handle_client(conn, addr, noOfConf, boolRecv):
                             send("REGISTERED TORECV " +
                                  Username + "\n\n", conn)
                             dict[Username] = [conn, None]
+                            print(
+                                "[CONNECTION] Total active connections are:", len(dict))
+
                 else:
                     send("ERROR: Invalid message\n", conn)
             else:
@@ -87,6 +105,13 @@ def handle_client(conn, addr, noOfConf, boolRecv):
                 c = s[i:i + 15]
                 if (c != "Content-length:"):
                     send("ERROR 103 Header Incomplete\n\n", conn)
+                    connected[0] = False
+                    if (Username != ""):
+                        del dict[Username]
+                        boolRecv.pop()
+                        print(
+                            "[CONNECTION] Total active connections are:", len(dict))
+                    break
                 else:
                     i += 16
                     j = i
@@ -97,6 +122,13 @@ def handle_client(conn, addr, noOfConf, boolRecv):
                     msg = s[i:len(s)]
                     if (contentLength != len(msg)):
                         send("ERROR 103 Header Incomplete\n\n", conn)
+                        connected[0] = False
+                        if (Username != ""):
+                            del dict[Username]
+                            boolRecv.pop()
+                            print(
+                                "[CONNECTION] Total active connections are:", len(dict))
+                        break
                     else:
                         if receiver in dict:
                             send("FORWARD " + Username +
