@@ -18,7 +18,6 @@ numbers = [1]
 print("IP addresses of all the hops:")
 print(hops[0])
 for i in range(1, len(RTT)):
-    RTT[i] = RTT[i] + RTT[i-1]
     print(hops[i])
     numbers.append(i+1)
 # print(hops)
